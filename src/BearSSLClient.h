@@ -42,6 +42,17 @@
 
 #include "bearssl/bearssl.h"
 
+
+
+// <MS>
+// Mark to check if patch is still set in 
+// - the destructor, and
+// - clientRead(...)
+#define MS_BEARSSL_BUGFIX_DONE
+
+
+
+
 class BearSSLClient : public Client {
 
 public:

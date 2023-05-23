@@ -81,6 +81,13 @@ BearSSLClient::~BearSSLClient()
     free(_skeyDecoder);
     _skeyDecoder = NULL;
   }
+
+  // <MS>
+  if (_ecCert[1].data) {
+    free(_ecCert[1].data);
+    _ecCert[1].data = NULL;
+  }
+  // <MS>
 }
 
 int BearSSLClient::connect(IPAddress ip, uint16_t port)
@@ -509,9 +516,12 @@ int BearSSLClient::clientRead(void *ctx, unsigned char *buf, size_t len)
 {
   Client* c = (Client*)ctx;
 
-  if (!c->connected()) {
+// <MS>
+//  if (!c->connected()) {
+  if ((!c->connected()) && (!c->available())) {
     return -1;
   }
+// <MS>
 
   int result = c->read(buf, len);
   if (result == -1) {
