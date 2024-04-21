@@ -1,10 +1,6 @@
 
 
-message(INFO "<MS>")
-message(INFO "<MS> ArduinoBearSSL >>")
-message(INFO "<MS>")
 message(INFO "<MS> CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
-
 
 set(ArduinoBearSSL_SRCS 
 
@@ -306,6 +302,3 @@ idf_component_register(
     REQUIRES ${ArduinoBearSSL_REQU}
     )
 
-message(INFO "<MS>")
-message(INFO "<MS> ArduinoBearSSL <<")
-message(INFO "<MS>")
