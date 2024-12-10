@@ -24,6 +24,9 @@
 
 #include "inner.h"
 
+// <MS>
+#include <Arduino.h>
+
 /* see bearssl_ssl.h */
 void
 br_sslio_init(br_sslio_context *ctx,
@@ -87,7 +90,9 @@ run_until(br_sslio_context *ctx, unsigned target)
 			if (wlen > 0) {
 				br_ssl_engine_sendrec_ack(ctx->engine, wlen);
 			}
-			continue;
+// <MS>
+//			continue;
+			goto contx;
 		}
 
 		/*
@@ -128,7 +133,9 @@ run_until(br_sslio_context *ctx, unsigned target)
 			if (rlen > 0) {
 				br_ssl_engine_recvrec_ack(ctx->engine, rlen);
 			}
-			continue;
+// <MS>
+//			continue;
+			goto contx;
 		}
 
 		/*
@@ -139,6 +146,10 @@ run_until(br_sslio_context *ctx, unsigned target)
 		 * record.
 		 */
 		br_ssl_engine_flush(ctx->engine, 0);
+
+// <MS>
+contx:
+		delay(10);
 	}
 }
 
@@ -306,6 +317,10 @@ br_sslio_close(br_sslio_context *ctx)
 {
 	br_ssl_engine_close(ctx->engine);
 	while (br_ssl_engine_current_state(ctx->engine) != BR_SSL_CLOSED) {
+
+		// <MS>
+		log_printf("%s", "*** br_sslio_close ***\n");
+
 		/*
 		 * Discard any incoming application data.
 		 */

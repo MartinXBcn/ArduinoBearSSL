@@ -44,10 +44,28 @@ jobs:
         board:
           - fqbn: arduino:samd:mkr1000
             type: wifi101
+            artifact-name-suffix: arduino-samd-mkr1000
           - fqbn: arduino:samd:mkrgsm1400
             type: gsm
+            artifact-name-suffix: arduino-samd-mkrgsm1400
+          - fqbn: arduino:samd:mkrnb1500
+            type: nb
+            artifact-name-suffix: arduino-samd-mkrnb1500
+          - fqbn: arduino:mbed_portenta:envie_m7
+            type: mbed_portenta
+            artifact-name-suffix: arduino-mbed_portenta-envie_m7
+          - fqbn: arduino:mbed_nano:nanorp2040connect
+            type: nina
+            artifact-name-suffix: arduino-mbed_nano-nanorp2040connect
+          - fqbn: arduino:mbed_opta:opta
+            type: mbed_opta
+            artifact-name-suffix: arduino-mbed_opta-opta
+          - fqbn: arduino:mbed_giga:giga
+            type: mbed_giga
+            artifact-name-suffix: arduino-mbed_giga-giga
           - fqbn: arduino:megaavr:uno2018
             type: megaavr
+            artifact-name-suffix: arduino-megaavr-uno2018
 
         # make board type-specific customizations to the matrix jobs
         include:
@@ -68,7 +86,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Compile examples
         uses: arduino/compile-sketches@v1
@@ -87,8 +105,8 @@ jobs:
 
       - name: Save sketches report as artifact
         if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           if-no-files-found: error
           path: ${{ env.SKETCHES_REPORTS_PATH }}
-          name: ${{ env.SKETCHES_REPORTS_PATH }}
+          name: sketches-report-${{ matrix.board.artifact-name-suffix }}
