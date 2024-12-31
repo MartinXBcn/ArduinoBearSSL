@@ -128,10 +128,16 @@ int BearSSLClient::connect(IPAddress ip, uint16_t port)
 
 // <MS>
 int BearSSLClient::connect(IPAddress ip, uint16_t port, int32_t timeout) {
+#if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
   if (!_client->connect(ip, port, timeout)) {
     return 0;
   }
-
+#else
+  _client->setTimeout(timeout);
+  if (!_client->connect(ip, port)) {
+    return 0;
+  }
+#endif
   return connectSSL(NULL);
 }
 
@@ -146,10 +152,16 @@ int BearSSLClient::connect(const char* host, uint16_t port)
 
 // <MS>
 int BearSSLClient::connect(const char* host, uint16_t port, int32_t timeout) {
+#if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
   if (!_client->connect(host, port, timeout)) {
     return 0;
   }
-
+#else
+  _client->setTimeout(timeout);
+  if (!_client->connect(host, port)) {
+    return 0;
+  }
+#endif
   return connectSSL(_noSNI ? NULL : host);
 }
 

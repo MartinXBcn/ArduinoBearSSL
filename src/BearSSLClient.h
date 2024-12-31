@@ -88,12 +88,20 @@ public:
   // virtual 
   int connect(IPAddress ip, uint16_t port) override;
   // <MS>
-  int connect(IPAddress ip, uint16_t port, int32_t timeout) override;
+  int connect(IPAddress ip, uint16_t port, int32_t timeout) 
+  #if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
+    override
+  #endif
+  ;
   // <MS>
   // virtual 
   int connect(const char* host, uint16_t port) override;
   // <MS>
-  int connect(const char* host, uint16_t port, int32_t timeout) override;
+  int connect(const char* host, uint16_t port, int32_t timeout) 
+  #if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
+    override
+  #endif
+;
 
   virtual size_t write(uint8_t);
   virtual size_t write(const uint8_t *buf, size_t size);
