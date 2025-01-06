@@ -35,6 +35,18 @@
 
 #include "BearSSLClient.h"
 
+
+
+// <MS>
+// Logging
+#undef MS_LOGGER_LEVEL
+#ifdef MS_ARDUINOBEARSSL_LOGGING
+#define MS_LOGGER_LEVEL MS_ARDUINOBEARSSL_LOGGING
+#endif
+#include "ESP32Logger.h"
+// <MS>
+
+
 #ifndef ARDUINO_BEARSSL_DISABLE_BUILTIN_TRUST_ANCHORS
 BearSSLClient::BearSSLClient(Client& client) :
   BearSSLClient(&client, TAs, TAs_NUM)
@@ -152,17 +164,30 @@ int BearSSLClient::connect(const char* host, uint16_t port)
 
 // <MS>
 int BearSSLClient::connect(const char* host, uint16_t port, int32_t timeout) {
+  DBGLOG(Info, "[BearSSLClient] >> host: %s, port: %hu, timeout: %i", host, port, timeout)
+  DBGCOD(int ret;)
 #if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
-  if (!_client->connect(host, port, timeout)) {
-    return 0;
+  DBGLOG(Info, "[BearSSLClient] _client->connect(%s, %hu, %i) ...", host, port, timeout)
+  ret = _client->connect(host, port, timeout);
+  if (!ret) {
+    goto end;
+//    return 0;
   }
 #else
   _client->setTimeout(timeout);
-  if (!_client->connect(host, port)) {
-    return 0;
+  ret = _client->connect(host, port);
+  if (!ret) {
+    goto end;
+//    return 0;
   }
 #endif
-  return connectSSL(_noSNI ? NULL : host);
+  DBGLOG(Info, "[BearSSLClient] connectSSL(%s) ...", _noSNI ? "NULL" : host)
+  ret = connectSSL(_noSNI ? NULL : host);
+  DBGCHK(Error, ret, "connectSSL returned ret: %i, _sc.eng.err: %i", ret, _sc.eng.err)
+
+end:
+  DBGLOG(Info, "[BearSSLClient] << return: %i", ret)
+  return ret;
 }
 
 size_t BearSSLClient::write(uint8_t b)
@@ -451,6 +476,7 @@ void BearSSLClient::setKey(const char key[], const char cert[])
 #if BEAR_SSL_CLIENT_CHAIN_SIZE > 1
 void BearSSLClient::setEccCertParent(const char cert[])
 {
+  DBGLOG(Info, "[BearSSLClient] >> cert: %s", cert ? cert : "NULL")
   // try to decode the cert
   br_pem_decoder_context pemDecoder;
 
@@ -477,23 +503,32 @@ void BearSSLClient::setEccCertParent(const char cert[])
 
     switch (br_pem_decoder_event(&pemDecoder)) {
       case BR_PEM_BEGIN_OBJ:
+        DBGLOG(Info, "[BearSSLClient] BR_PEM_BEGIN_OBJ")
         br_pem_decoder_setdest(&pemDecoder, BearSSLClient::parentAppendCert, this);
         break;
 
       case BR_PEM_END_OBJ:
+        DBGLOG(Info, "[BearSSLClient] BR_PEM_END_OBJ")
         if (_ecCert[1].data_len) {
           // done
+          DBGLOG(Info, "[BearSSLClient] DONE")
           _ecCertDynamic = true;
+          DBGLOG(Info, "[BearSSLClient] <<")
           return;
         }
         break;
 
       case BR_PEM_ERROR:
+        DBGLOG(Error, "[BearSSLClient] BR_PEM_ERROR")
         // failure
         free(_ecCert[1].data);
+        // <MS>
+        _ecCert[1].data = NULL;
+        DBGLOG(Info, "[BearSSLClient] <<")
         return;
     }
   }
+  DBGLOG(Info, "[BearSSLClient] <<")
 }
 #endif
 
@@ -504,7 +539,10 @@ int BearSSLClient::errorCode()
 
 int BearSSLClient::connectSSL(const char* host)
 {
+  DBGLOG(Info, "[BearSSLClient] >> host: %s", host ? host : "NULL")
+  DBGCHK(Error, _br_ssl_client_init_function, "[BearSSLClient] _br_ssl_client_init_function is NULL!")
   if (!_br_ssl_client_init_function) {
+    DBGLOG(Info, "[BearSSLClient] <<")
     return 0;
   }
 
@@ -572,10 +610,13 @@ int BearSSLClient::connectSSL(const char* host)
     if (state & BR_SSL_SENDAPP) {
       break;
     } else if (state & BR_SSL_CLOSED) {
+      DBGLOG(Error, "[BearSSLClient] << state: BR_SSL_CLOSED")
+      DBGLOG(Info, "[BearSSLClient] << return: 0")
       return 0;
     }
   }
 
+  DBGLOG(Info, "[BearSSLClient] << return: 1")
   return 1;
 }
 

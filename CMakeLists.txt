@@ -294,6 +294,7 @@ set(ArduinoBearSSL_SRCS
 set(ArduinoBearSSL_INCL ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(ArduinoBearSSL_REQU 
     arduino 
+    ms_Logger
     )
 
 idf_component_register(

@@ -3,6 +3,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+
+// <MS>
+// #include "esp32-hal-log.h"
+
+
 typedef struct {
 	uint32_t *dp;
 	uint32_t *rp;
@@ -904,6 +909,9 @@ T0_DEFENTRY(br_ssl_hs_client_init_main, 169)
 void
 br_ssl_hs_client_run(void *t0ctx)
 {
+	// <MS>
+	// log_printf("br_ssl_hs_client_run >>\n");
+
 	uint32_t *dp, *rp;
 	const unsigned char *ip;
 
@@ -959,6 +967,11 @@ br_ssl_hs_client_run(void *t0ctx)
 
 	t0_next:
 		t0x = T0_NEXT(&ip);
+
+		// <MS>
+		// log_printf("br_ssl_hs_client_run: t0x: %i\n", t0x);
+	
+
 		if (t0x < T0_INTERPRETED) {
 			switch (t0x) {
 				int32_t t0off;

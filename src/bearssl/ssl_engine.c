@@ -24,6 +24,12 @@
 
 #include "inner.h"
 
+
+// <MS>
+#include "esp32-hal-log.h"
+#include "esp_debug_helpers.h"
+
+
 #if 0
 /* obsolete */
 
@@ -289,6 +295,10 @@ br_ssl_engine_fail(br_ssl_engine_context *rc, int err)
 	if (rc->iomode != BR_IO_FAILED) {
 		rc->iomode = BR_IO_FAILED;
 		rc->err = err;
+		// <MS>
+		log_printf("##### ERROR ##### br_ssl_engine_fail err: %i\n", err);
+//		__assert_func (__FILENAME__, __LINE__, __ASSERT_FUNC, "Fatal error - stop.");
+		esp_backtrace_print(1000);
 	}
 }
 
