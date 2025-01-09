@@ -298,7 +298,7 @@ br_ssl_engine_fail(br_ssl_engine_context *rc, int err)
 		// <MS>
 		log_printf("##### ERROR ##### br_ssl_engine_fail err: %i\n", err);
 //		__assert_func (__FILENAME__, __LINE__, __ASSERT_FUNC, "Fatal error - stop.");
-		esp_backtrace_print(1000);
+//		esp_backtrace_print(1000);
 	}
 }
 
