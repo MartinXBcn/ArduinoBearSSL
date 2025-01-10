@@ -85,24 +85,29 @@ public:
   inline void setTrustAnchors(const br_x509_trust_anchor* myTAs, int myNumTAs) { _TAs = myTAs; _numTAs = myNumTAs; }
 
   // <MS>
+  // Were necessary adjustments for ESP-Arduino 3.1.0.
+  // Obsolete with ESP-Arduino 3.1.1.
   // virtual 
   int connect(IPAddress ip, uint16_t port) override;
+  /*
   // <MS>
   int connect(IPAddress ip, uint16_t port, int32_t timeout) 
   #if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
     override
   #endif
   ;
+  */
   // <MS>
   // virtual 
   int connect(const char* host, uint16_t port) override;
+  /*
   // <MS>
   int connect(const char* host, uint16_t port, int32_t timeout) 
   #if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
     override
   #endif
 ;
-
+*/
   virtual size_t write(uint8_t);
   virtual size_t write(const uint8_t *buf, size_t size);
   virtual int available();

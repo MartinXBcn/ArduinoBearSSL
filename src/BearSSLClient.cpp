@@ -137,7 +137,7 @@ int BearSSLClient::connect(IPAddress ip, uint16_t port)
 
   return connectSSL(NULL);
 }
-
+/*
 // <MS>
 int BearSSLClient::connect(IPAddress ip, uint16_t port, int32_t timeout) {
 #if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
@@ -152,7 +152,7 @@ int BearSSLClient::connect(IPAddress ip, uint16_t port, int32_t timeout) {
 #endif
   return connectSSL(NULL);
 }
-
+*/
 int BearSSLClient::connect(const char* host, uint16_t port)
 {
   if (!_client->connect(host, port)) {
@@ -161,7 +161,7 @@ int BearSSLClient::connect(const char* host, uint16_t port)
 
   return connectSSL(_noSNI ? NULL : host);
 }
-
+/*
 // <MS>
 int BearSSLClient::connect(const char* host, uint16_t port, int32_t timeout) {
   DBGLOG(Info, "[BearSSLClient] >> host: %s, port: %hu, timeout: %i", host, port, timeout)
@@ -189,7 +189,7 @@ end:
   DBGLOG(Info, "[BearSSLClient] << return: %i", ret)
   return ret;
 }
-
+*/
 size_t BearSSLClient::write(uint8_t b)
 {
   return write(&b, sizeof(b));
