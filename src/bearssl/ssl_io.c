@@ -26,6 +26,7 @@
 
 // <MS>
 #include <Arduino.h>
+#include "esp_debug_helpers.h"
 
 /* see bearssl_ssl.h */
 void
@@ -54,11 +55,18 @@ br_sslio_init(br_sslio_context *ctx,
 static int
 run_until(br_sslio_context *ctx, unsigned target)
 {
+//	log_printf("run_until >> target: %u\n", target);		
+
+	// <MS>
+	unsigned long start_time = millis(); // Startzeit erfassen
+    const unsigned long timeout = 5000;  // Timeout in Millisekunden (z. B. 5 Sekunden)
+
 	for (;;) {
 		unsigned state;
-
 		state = br_ssl_engine_current_state(ctx->engine);
+//		log_printf("run_until - state: %u\n", state);		
 		if (state & BR_SSL_CLOSED) {
+			log_printf("run_until << BR_SSL_CLOSED\n");		
 			return -1;
 		}
 
@@ -85,6 +93,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 					br_ssl_engine_fail(
 						ctx->engine, BR_ERR_IO);
 				}
+				log_printf("run_until << wlen < 0\n");		
 				return -1;
 			}
 			if (wlen > 0) {
@@ -99,6 +108,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 		 * If we reached our target, then we are finished.
 		 */
 		if (state & target) {
+//			log_printf("run_until << target\n");		
 			return 0;
 		}
 
@@ -111,6 +121,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 		 * This is unrecoverable here, so we report an error.
 		 */
 		if (state & BR_SSL_RECVAPP) {
+			log_printf("run_until << BR_SSL_RECVAPP\n");		
 			return -1;
 		}
 
@@ -126,12 +137,26 @@ run_until(br_sslio_context *ctx, unsigned target)
 
 			buf = br_ssl_engine_recvrec_buf(ctx->engine, &len);
 			rlen = ctx->low_read(ctx->read_context, buf, len);
+//			log_printf("run_until - rlen: %i\n", rlen);		
+
 			if (rlen < 0) {
 				br_ssl_engine_fail(ctx->engine, BR_ERR_IO);
+				log_printf("run_until << rlen < 0\n");		
 				return -1;
 			}
+			else
 			if (rlen > 0) {
 				br_ssl_engine_recvrec_ack(ctx->engine, rlen);
+				start_time = millis();
+			}
+			else {
+				// <MS>
+				if (millis() - start_time > timeout) {
+					br_ssl_engine_fail(
+						ctx->engine, BR_ERR_IO);
+					log_printf("run_until << timeout\n");		
+					return -1;
+				}
 			}
 // <MS>
 //			continue;
@@ -149,7 +174,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 
 // <MS>
 contx:
-		delay(10);
+		delay(1);
 	}
 }
 
@@ -315,21 +340,24 @@ br_sslio_flush(br_sslio_context *ctx)
 int
 br_sslio_close(br_sslio_context *ctx)
 {
+	// <MS>
+	log_printf("%s", "br_sslio_close: >>\n");
+	esp_backtrace_print(100);
+
 	br_ssl_engine_close(ctx->engine);
 	while (br_ssl_engine_current_state(ctx->engine) != BR_SSL_CLOSED) {
-
-		// <MS>
-		log_printf("%s", "*** br_sslio_close ***\n");
-
 		/*
 		 * Discard any incoming application data.
 		 */
 		size_t len;
 
+		log_printf("%s", "br_sslio_close: AAA\n");
 		run_until(ctx, BR_SSL_RECVAPP);
+		log_printf("%s", "br_sslio_close: BBB\n");
 		if (br_ssl_engine_recvapp_buf(ctx->engine, &len) != NULL) {
 			br_ssl_engine_recvapp_ack(ctx->engine, len);
 		}
 	}
+	log_printf("%s", "br_sslio_close: <<\n");
 	return br_ssl_engine_last_error(ctx->engine) == BR_ERR_OK;
 }
