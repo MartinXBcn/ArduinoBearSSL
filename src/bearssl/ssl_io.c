@@ -93,7 +93,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 					br_ssl_engine_fail(
 						ctx->engine, BR_ERR_IO);
 				}
-				log_printf("run_until << wlen < 0\n");		
+//				log_printf("run_until << wlen < 0\n");		
 				return -1;
 			}
 			if (wlen > 0) {
@@ -341,8 +341,8 @@ int
 br_sslio_close(br_sslio_context *ctx)
 {
 	// <MS>
-	log_printf("%s", "br_sslio_close: >>\n");
-	esp_backtrace_print(100);
+//	log_printf("%s", "br_sslio_close: >>\n");
+//	esp_backtrace_print(100);
 
 	br_ssl_engine_close(ctx->engine);
 	while (br_ssl_engine_current_state(ctx->engine) != BR_SSL_CLOSED) {
@@ -358,6 +358,6 @@ br_sslio_close(br_sslio_context *ctx)
 			br_ssl_engine_recvapp_ack(ctx->engine, len);
 		}
 	}
-	log_printf("%s", "br_sslio_close: <<\n");
+//	log_printf("%s", "br_sslio_close: <<\n");
 	return br_ssl_engine_last_error(ctx->engine) == BR_ERR_OK;
 }
