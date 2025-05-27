@@ -47,6 +47,8 @@ private:
   br_sha1_context _ctx;
 };
 
+#if !defined(ARDUINO_BEARSSL_DISABLE_SHA1)
 extern SHA1Class SHA1;
+#endif
 
 #endif
