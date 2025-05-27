@@ -55,8 +55,9 @@ br_sslio_init(br_sslio_context *ctx,
 static int
 run_until(br_sslio_context *ctx, unsigned target)
 {
-//	log_printf("run_until >> target: %u\n", target);		
-
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
+	log_printf("run_until >> target: %u\n", target);		
+#endif
 	// <MS>
 	unsigned long start_time = millis(); // Startzeit erfassen
     const unsigned long timeout = 5000;  // Timeout in Millisekunden (z. B. 5 Sekunden)
@@ -64,9 +65,13 @@ run_until(br_sslio_context *ctx, unsigned target)
 	for (;;) {
 		unsigned state;
 		state = br_ssl_engine_current_state(ctx->engine);
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 //		log_printf("run_until - state: %u\n", state);		
+#endif			
 		if (state & BR_SSL_CLOSED) {
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 			log_printf("run_until << BR_SSL_CLOSED\n");		
+#endif			
 			return -1;
 		}
 
@@ -93,7 +98,9 @@ run_until(br_sslio_context *ctx, unsigned target)
 					br_ssl_engine_fail(
 						ctx->engine, BR_ERR_IO);
 				}
-//				log_printf("run_until << wlen < 0\n");		
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
+				log_printf("run_until << wlen < 0\n");		
+#endif				
 				return -1;
 			}
 			if (wlen > 0) {
@@ -108,7 +115,9 @@ run_until(br_sslio_context *ctx, unsigned target)
 		 * If we reached our target, then we are finished.
 		 */
 		if (state & target) {
-//			log_printf("run_until << target\n");		
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
+			log_printf("run_until << target\n");		
+#endif			
 			return 0;
 		}
 
@@ -121,7 +130,9 @@ run_until(br_sslio_context *ctx, unsigned target)
 		 * This is unrecoverable here, so we report an error.
 		 */
 		if (state & BR_SSL_RECVAPP) {
-			log_printf("run_until << BR_SSL_RECVAPP\n");		
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
+			log_printf("run_until << BR_SSL_RECVAPP\n");	
+#endif				
 			return -1;
 		}
 
@@ -137,11 +148,14 @@ run_until(br_sslio_context *ctx, unsigned target)
 
 			buf = br_ssl_engine_recvrec_buf(ctx->engine, &len);
 			rlen = ctx->low_read(ctx->read_context, buf, len);
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 //			log_printf("run_until - rlen: %i\n", rlen);		
-
+#endif			
 			if (rlen < 0) {
 				br_ssl_engine_fail(ctx->engine, BR_ERR_IO);
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 				log_printf("run_until << rlen < 0\n");		
+#endif				
 				return -1;
 			}
 			else
@@ -154,7 +168,9 @@ run_until(br_sslio_context *ctx, unsigned target)
 				if (millis() - start_time > timeout) {
 					br_ssl_engine_fail(
 						ctx->engine, BR_ERR_IO);
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 					log_printf("run_until << timeout\n");		
+#endif
 					return -1;
 				}
 			}
@@ -170,6 +186,9 @@ run_until(br_sslio_context *ctx, unsigned target)
 		 * the buffered data to "make room" for a new incoming
 		 * record.
 		 */
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
+		log_printf("run_until - br_ssl_engine_flush()\n");		
+#endif
 		br_ssl_engine_flush(ctx->engine, 0);
 
 // <MS>
@@ -341,8 +360,10 @@ int
 br_sslio_close(br_sslio_context *ctx)
 {
 	// <MS>
-//	log_printf("%s", "br_sslio_close: >>\n");
-//	esp_backtrace_print(100);
+#ifdef MS_ARDUINOBEARSSL_LOGGING		
+	log_printf("%s", "br_sslio_close: >>\n");
+//	esp_backtrace_print(10);
+#endif
 
 	br_ssl_engine_close(ctx->engine);
 	while (br_ssl_engine_current_state(ctx->engine) != BR_SSL_CLOSED) {
@@ -351,13 +372,20 @@ br_sslio_close(br_sslio_context *ctx)
 		 */
 		size_t len;
 
-		log_printf("%s", "br_sslio_close: AAA\n");
+#ifdef MS_ARDUINOBEARSSL_LOGGING		
+		log_printf("%s", "br_sslio_close: call run_until() ...\n");
+		int rc =
+#endif		
 		run_until(ctx, BR_SSL_RECVAPP);
-		log_printf("%s", "br_sslio_close: BBB\n");
+#ifdef MS_ARDUINOBEARSSL_LOGGING		
+		log_printf("br_sslio_close: run_until() returned %i\n", rc);
+#endif		
 		if (br_ssl_engine_recvapp_buf(ctx->engine, &len) != NULL) {
 			br_ssl_engine_recvapp_ack(ctx->engine, len);
 		}
 	}
-//	log_printf("%s", "br_sslio_close: <<\n");
+#ifdef MS_ARDUINOBEARSSL_LOGGING		
+	log_printf("%s", "br_sslio_close: <<\n");
+#endif	
 	return br_ssl_engine_last_error(ctx->engine) == BR_ERR_OK;
 }
