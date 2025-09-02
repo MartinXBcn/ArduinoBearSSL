@@ -27,7 +27,7 @@
 
 // <MS>
 #include "bearssl/ms_semphr.h"
-SemaphoreHandle_t msArduinoBearSslSemCriticalProcess;
+SemaphoreHandle_t msArduinoBearSslSemCriticalProcess = NULL;
 
 
 ArduinoBearSSLClass::ArduinoBearSSLClass() :
