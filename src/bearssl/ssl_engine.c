@@ -27,7 +27,6 @@
 
 // <MS>
 #include "esp32-hal-log.h"
-#include "esp_debug_helpers.h"
 
 
 #if 0
