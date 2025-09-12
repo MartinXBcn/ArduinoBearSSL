@@ -123,22 +123,7 @@ int BearSSLClient::connect(IPAddress ip, uint16_t port)
 
   return connectSSL(NULL);
 }
-/*
-// <MS>
-int BearSSLClient::connect(IPAddress ip, uint16_t port, int32_t timeout) {
-#if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
-  if (!_client->connect(ip, port, timeout)) {
-    return 0;
-  }
-#else
-  _client->setTimeout(timeout);
-  if (!_client->connect(ip, port)) {
-    return 0;
-  }
-#endif
-  return connectSSL(NULL);
-}
-*/
+
 int BearSSLClient::connect(const char* host, uint16_t port)
 {
   if (!_client->connect(host, port)) {
@@ -147,35 +132,7 @@ int BearSSLClient::connect(const char* host, uint16_t port)
 
   return connectSSL(_noSNI ? NULL : host);
 }
-/*
-// <MS>
-int BearSSLClient::connect(const char* host, uint16_t port, int32_t timeout) {
-  DBGLOG(Info, "[BearSSLClient] >> host: %s, port: %hu, timeout: %i", host, port, timeout)
-  DBGCOD(int ret;)
-#if (ESP_IDF_VERSION_MAJOR >= 5) && (ESP_IDF_VERSION_MINOR >= 3)
-  DBGLOG(Info, "[BearSSLClient] _client->connect(%s, %hu, %i) ...", host, port, timeout)
-  ret = _client->connect(host, port, timeout);
-  if (!ret) {
-    goto end;
-//    return 0;
-  }
-#else
-  _client->setTimeout(timeout);
-  ret = _client->connect(host, port);
-  if (!ret) {
-    goto end;
-//    return 0;
-  }
-#endif
-  DBGLOG(Info, "[BearSSLClient] connectSSL(%s) ...", _noSNI ? "NULL" : host)
-  ret = connectSSL(_noSNI ? NULL : host);
-  DBGCHK(Error, ret, "connectSSL returned ret: %i, _sc.eng.err: %i", ret, _sc.eng.err)
 
-end:
-  DBGLOG(Info, "[BearSSLClient] << return: %i", ret)
-  return ret;
-}
-*/
 size_t BearSSLClient::write(uint8_t b)
 {
   return write(&b, sizeof(b));
@@ -527,9 +484,10 @@ int BearSSLClient::errorCode()
 int BearSSLClient::connectSSL(const char* host)
 {
   DBGLOG(Info, "[BearSSLClient] >> host: %s", host ? host : "NULL")
+  DBGCST(Debug, "[BearSSLClient] Call-stack:")
   DBGCHK(Error, _br_ssl_client_init_function, "[BearSSLClient] _br_ssl_client_init_function is NULL!")
   if (!_br_ssl_client_init_function) {
-    DBGLOG(Info, "[BearSSLClient] <<")
+    DBGLOG(Info, "[BearSSLClient] << return: 0")
     return 0;
   }
 
@@ -597,7 +555,7 @@ int BearSSLClient::connectSSL(const char* host)
     if (state & BR_SSL_SENDAPP) {
       break;
     } else if (state & BR_SSL_CLOSED) {
-      DBGLOG(Error, "[BearSSLClient] << state: BR_SSL_CLOSED")
+      DBGLOG(Error, "[BearSSLClient] state: BR_SSL_CLOSED")
       DBGLOG(Info, "[BearSSLClient] << return: 0")
       return 0;
     }

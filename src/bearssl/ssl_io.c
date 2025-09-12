@@ -27,6 +27,7 @@
 // <MS>
 #include <Arduino.h>
 #include "ms_semphr.h"
+//#include "esp_debug_helpers.h"
 
 
 /* see bearssl_ssl.h */
@@ -57,7 +58,8 @@ static int
 run_until(br_sslio_context *ctx, unsigned target)
 {
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
-	log_printf("run_until >> target: %u\n", target);		
+//	log_printf("run_until >> target: %u\n", target);
+//	esp_backtrace_print(100);
 #endif
 
     xSemaphoreTake(msArduinoBearSslSemCriticalProcess, portMAX_DELAY);
@@ -75,7 +77,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 #endif			
 		if (state & BR_SSL_CLOSED) {
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
-			log_printf("run_until << BR_SSL_CLOSED\n");		
+			log_printf("run_until << ***ERROR*** BR_SSL_CLOSED\n");		
 #endif			
 
 			xSemaphoreGive(msArduinoBearSslSemCriticalProcess);
@@ -107,7 +109,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 						ctx->engine, BR_ERR_IO);
 				}
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
-				log_printf("run_until << wlen < 0\n");		
+				log_printf("run_until << ***ERROR*** wlen < 0\n");		
 #endif				
 
 				xSemaphoreGive(msArduinoBearSslSemCriticalProcess);
@@ -128,7 +130,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 		 */
 		if (state & target) {
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
-			log_printf("run_until << target\n");		
+			log_printf("run_until << ***OKAY*** target\n");		
 #endif			
 
 			xSemaphoreGive(msArduinoBearSslSemCriticalProcess);
@@ -146,7 +148,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 		 */
 		if (state & BR_SSL_RECVAPP) {
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
-			log_printf("run_until << BR_SSL_RECVAPP\n");	
+			log_printf("run_until << ***ERROR*** BR_SSL_RECVAPP\n");	
 #endif				
 
 			xSemaphoreGive(msArduinoBearSslSemCriticalProcess);
@@ -172,7 +174,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 			if (rlen < 0) {
 				br_ssl_engine_fail(ctx->engine, BR_ERR_IO);
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
-				log_printf("run_until << rlen < 0\n");		
+				log_printf("run_until << ***ERROR*** rlen < 0\n");		
 #endif				
 
 				xSemaphoreGive(msArduinoBearSslSemCriticalProcess);
@@ -190,7 +192,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 					br_ssl_engine_fail(
 						ctx->engine, BR_ERR_IO);
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
-					log_printf("run_until << timeout\n");		
+					log_printf("run_until << ***ERROR*** timeout\n");		
 #endif
 
 					xSemaphoreGive(msArduinoBearSslSemCriticalProcess);
@@ -220,7 +222,7 @@ run_until(br_sslio_context *ctx, unsigned target)
 			// <MS>
 			br_ssl_engine_fail(ctx->engine, BR_ERR_IO);
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
-			log_printf("run_until << br_ssl_engine_flush() - timeout\n");		
+			log_printf("run_until << ***ERROR*** br_ssl_engine_flush() - timeout\n");		
 #endif
 
 			xSemaphoreGive(msArduinoBearSslSemCriticalProcess);
@@ -245,6 +247,10 @@ br_sslio_read(br_sslio_context *ctx, void *dst, size_t len)
 		return 0;
 	}
 	if (run_until(ctx, BR_SSL_RECVAPP) < 0) {
+#ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
+		log_printf("br_sslio_read << ***ERROR*** br_ssl_engine_flush() - timeout\n");		
+		esp_backtrace_print(100);
+#endif
 		return -1;
 	}
 	buf = br_ssl_engine_recvapp_buf(ctx->engine, &alen);
@@ -399,7 +405,7 @@ br_sslio_close(br_sslio_context *ctx)
 	// <MS>
 #ifdef MS_ARDUINOBEARSSL_LOGGING		
 	log_printf("%s", "br_sslio_close: >>\n");
-//	esp_backtrace_print(10);
+//	esp_backtrace_print(100);
 #endif
 
 	br_ssl_engine_close(ctx->engine);
