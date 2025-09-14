@@ -403,7 +403,7 @@ int
 br_sslio_close(br_sslio_context *ctx)
 {
 	// <MS>
-#ifdef MS_ARDUINOBEARSSL_LOGGING		
+#if defined(MS_ARDUINOBEARSSL_LOGGING) && defined(MS_LOGGER_ON)
 	log_printf("%s", "br_sslio_close: >>\n");
 //	esp_backtrace_print(100);
 #endif
@@ -415,19 +415,19 @@ br_sslio_close(br_sslio_context *ctx)
 		 */
 		size_t len;
 
-#ifdef MS_ARDUINOBEARSSL_LOGGING		
+#if defined(MS_ARDUINOBEARSSL_LOGGING) && defined(MS_LOGGER_ON)
 		log_printf("%s", "br_sslio_close: call run_until() ...\n");
 		int rc =
 #endif		
 		run_until(ctx, BR_SSL_RECVAPP);
-#ifdef MS_ARDUINOBEARSSL_LOGGING		
+#if defined(MS_ARDUINOBEARSSL_LOGGING) && defined(MS_LOGGER_ON)
 		log_printf("br_sslio_close: run_until() returned %i\n", rc);
 #endif		
 		if (br_ssl_engine_recvapp_buf(ctx->engine, &len) != NULL) {
 			br_ssl_engine_recvapp_ack(ctx->engine, len);
 		}
 	}
-#ifdef MS_ARDUINOBEARSSL_LOGGING		
+#if defined(MS_ARDUINOBEARSSL_LOGGING) && defined(MS_LOGGER_ON)
 	log_printf("%s", "br_sslio_close: <<\n");
 #endif	
 	return br_ssl_engine_last_error(ctx->engine) == BR_ERR_OK;

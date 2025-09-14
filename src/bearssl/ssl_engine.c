@@ -294,7 +294,7 @@ br_ssl_engine_fail(br_ssl_engine_context *rc, int err)
 	if (rc->iomode != BR_IO_FAILED) {
 		rc->iomode = BR_IO_FAILED;
 		rc->err = err;
-#ifdef MS_ARDUINOBEARSSL_LOGGING		
+#if defined(MS_ARDUINOBEARSSL_LOGGING) && defined(MS_LOGGER_ON)
 		// <MS>
 		log_printf("##### ERROR ##### br_ssl_engine_fail err: %i\n", err);
 //		__assert_func (__FILENAME__, __LINE__, __ASSERT_FUNC, "Fatal error - stop.");

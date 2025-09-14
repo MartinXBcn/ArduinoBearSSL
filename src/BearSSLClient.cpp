@@ -40,7 +40,7 @@
 // <MS>
 // Logging
 #undef MS_LOGGER_LEVEL
-#ifdef MS_ARDUINOBEARSSL_LOGGING
+#if defined(MS_ARDUINOBEARSSL_LOGGING) && defined(MS_LOGGER_ON)
 #define MS_LOGGER_LEVEL MS_ARDUINOBEARSSL_LOGGING
 #endif
 #include "ESP32Logger.h"
