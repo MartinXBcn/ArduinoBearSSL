@@ -296,7 +296,7 @@ br_ssl_engine_fail(br_ssl_engine_context *rc, int err)
 		rc->err = err;
 #if defined(MS_ARDUINOBEARSSL_LOGGING) && defined(MS_LOGGER_ON)
 		// <MS>
-		log_printf("##### ERROR ##### br_ssl_engine_fail err: %i\n", err);
+		log_printf("\033[0;101m""##### ERROR ##### br_ssl_engine_fail err: %i""\033[0m""\n", err);
 //		__assert_func (__FILENAME__, __LINE__, __ASSERT_FUNC, "Fatal error - stop.");
 //		esp_backtrace_print(1000);
 #endif
@@ -696,6 +696,10 @@ recvrec_ack(br_ssl_engine_context *rc, size_t len)
 				return;
 			}
 			if (rlen > (rc->ibuf_len - 5)) {
+#if defined(MS_ARDUINOBEARSSL_LOGGING) && defined(MS_LOGGER_ON)
+				// <MS>
+				log_printf("\033[0;101m""##### ERROR ##### recvrec_ack - BR_ERR_TOO_LARGE rlen: %zu, rc->ibuf_len: %zu""\033[0m""\n", rlen, rc->ibuf_len);
+#endif				
 				br_ssl_engine_fail(rc, BR_ERR_TOO_LARGE);
 				return;
 			}
