@@ -34,7 +34,7 @@
 #endif
 
 #if defined(ARDUINO_DISABLE_ECCX08) || (!defined(BSSLSECURE_ELEMENT_IS_ECCX08) &&\
-    !defined(SECURE_ELEMENT_IS_SE05X))
+    !defined(BSSLSECURE_ELEMENT_IS_SE050))
 #define ARDUINO_DISABLE_SECURE_ELEMENT
 #endif
 
