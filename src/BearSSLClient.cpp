@@ -73,6 +73,8 @@ BearSSLClient::BearSSLClient(Client* client, const br_x509_trust_anchor* myTAs, 
   _skeyDecoder(NULL),
 #endif
   _ecChainLen(0),
+  _sc(), // Keep errorCode() defined before the first connection attempt.
+  _ioc(),
 #ifndef ARDUINO_BEARSSL_DISABLE_FULL_CLIENT_PROFILE
   _br_ssl_client_init_function(br_ssl_client_init_full)
 #else
@@ -117,7 +119,8 @@ BearSSLClient::~BearSSLClient()
 
 int BearSSLClient::connect(IPAddress ip, uint16_t port)
 {
-  if (!_client->connect(ip, port)) {
+  _ioc = {};
+  if (!_client || !_client->connect(ip, port)) {
     return 0;
   }
 
@@ -126,7 +129,8 @@ int BearSSLClient::connect(IPAddress ip, uint16_t port)
 
 int BearSSLClient::connect(const char* host, uint16_t port)
 {
-  if (!_client->connect(host, port)) {
+  _ioc = {};
+  if (!_client || !_client->connect(host, port)) {
     return 0;
   }
 
@@ -140,6 +144,10 @@ size_t BearSSLClient::write(uint8_t b)
 
 size_t BearSSLClient::write(const uint8_t *buf, size_t size)
 {
+  if (!_ioc.engine) {
+    return 0;
+  }
+
   size_t written = 0;
 
   while (written < size) {
@@ -162,6 +170,10 @@ size_t BearSSLClient::write(const uint8_t *buf, size_t size)
 
 int BearSSLClient::available()
 {
+  if (!_ioc.engine) {
+    return 0;
+  }
+
   int available = br_sslio_read_available(&_ioc);
 
   if (available < 0) {
@@ -184,11 +196,22 @@ int BearSSLClient::read()
 
 int BearSSLClient::read(uint8_t *buf, size_t size)
 {
+  if (size == 0) {
+    return 0;
+  }
+  if (!_ioc.engine) {
+    return -1;
+  }
+
   return br_sslio_read(&_ioc, buf, size);
 }
 
 int BearSSLClient::peek()
 {
+  if (!_ioc.engine) {
+    return -1;
+  }
+
   byte b;
 
   if (br_sslio_peek(&_ioc, &b, sizeof(b)) == sizeof(b)) {
@@ -200,26 +223,31 @@ int BearSSLClient::peek()
 
 void BearSSLClient::flush()
 {
-  br_sslio_flush(&_ioc);
+  if (_ioc.engine) {
+    br_sslio_flush(&_ioc);
+  }
 
-  _client->flush();
+  if (_client) {
+    _client->flush();
+  }
 }
 
 void BearSSLClient::stop()
 {
-  if (_client->connected()) {
+  if (_client && _client->connected()) {
 #if !defined(ARDUINO_BEARSSL_DISABLE_TLS_CLOSE)
-    if ((br_ssl_engine_current_state(&_sc.eng) & BR_SSL_CLOSED) == 0) {
+    if (_ioc.engine && (br_ssl_engine_current_state(&_sc.eng) & BR_SSL_CLOSED) == 0) {
       br_sslio_close(&_ioc);
     }
 #endif
     _client->stop();
   }
+  _ioc = {};
 }
 
 uint8_t BearSSLClient::connected()
 {
-  if (!_client->connected()) {
+  if (!_ioc.engine || !_client || !_client->connected()) {
     return 0;
   }
 
@@ -234,7 +262,7 @@ uint8_t BearSSLClient::connected()
 
 BearSSLClient::operator bool()
 {
-  return (*_client);
+  return _client && (*_client);
 }
 
 void BearSSLClient::setInsecure(SNI insecure)

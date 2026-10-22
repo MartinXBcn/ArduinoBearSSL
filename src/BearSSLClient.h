@@ -76,7 +76,12 @@ public:
   BearSSLClient(Client* client, const br_x509_trust_anchor* myTAs, int myNumTAs);
   virtual ~BearSSLClient();
 
-  inline void setClient(Client& client) { _client = &client; }
+  inline void setClient(Client& client) {
+    if (_client != &client) {
+      _ioc = {};
+      _client = &client;
+    }
+  }
   
   // <MS>
   inline Client* getClient() { return _client; }
@@ -157,6 +162,7 @@ private:
   br_x509_minimal_context _xc;
   unsigned char _ibuf[BEAR_SSL_CLIENT_IBUF_SIZE];
   unsigned char _obuf[BEAR_SSL_CLIENT_OBUF_SIZE];
+  // A null engine marks I/O as unavailable until connectSSL() initializes it.
   br_sslio_context _ioc;
 
   void (*_br_ssl_client_init_function)(br_ssl_client_context *cc, br_x509_minimal_context *xc, const br_x509_trust_anchor *trust_anchors, size_t trust_anchors_num);
