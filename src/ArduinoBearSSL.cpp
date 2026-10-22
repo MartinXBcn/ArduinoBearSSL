@@ -25,16 +25,9 @@
 #include "ArduinoBearSSL.h"
 
 
-// <MS>
-#include "bearssl/ms_semphr.h"
-SemaphoreHandle_t msArduinoBearSslSemCriticalProcess = NULL;
-
-
 ArduinoBearSSLClass::ArduinoBearSSLClass() :
   _onGetTimeCallback(NULL)
 {
-    // <MS>
-    msArduinoBearSslSemCriticalProcess = xSemaphoreCreateMutex();
 }
 
 ArduinoBearSSLClass::~ArduinoBearSSLClass()

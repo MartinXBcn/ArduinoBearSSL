@@ -67,6 +67,8 @@
 
 
 
+// Separate instances have independent TLS state. The caller must serialize
+// all access to an instance and its base Client, including configuration.
 class BearSSLClient : public Client {
 
 public:
