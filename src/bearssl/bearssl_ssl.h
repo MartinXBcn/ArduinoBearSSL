@@ -3961,10 +3961,6 @@ int br_ssl_server_reset(br_ssl_server_context *cc);
  *
  * This structure is initialised with `br_sslio_init()`. Its contents
  * are opaque and shall not be accessed directly.
- *
- * Independent engines and buffers may be used concurrently. The caller
- * must serialize all access to the same engine, including through other
- * wrappers. Callbacks must synchronize access to shared transports.
  */
 typedef struct {
 #ifndef BR_DOXYGEN_IGNORE
