@@ -247,17 +247,16 @@ void BearSSLClient::stop()
 
 uint8_t BearSSLClient::connected()
 {
-  if (!_ioc.engine || !_client || !_client->connected()) {
-    return 0;
+  uint8_t result = 0;
+  if (_ioc.engine && _client) {
+    const unsigned state = br_ssl_engine_current_state(&_sc.eng);
+    if ((state & BR_SSL_CLOSED) == 0) {
+      // Plaintext or unread TLS records can remain buffered after TCP closes.
+      result = (state & BR_SSL_RECVAPP) != 0 ||
+               _client->connected() || _client->available() > 0;
+    }
   }
-
-  unsigned state = br_ssl_engine_current_state(&_sc.eng);
-
-  if (state == BR_SSL_CLOSED) {
-    return 0;
-  }
-
-  return 1;
+  return result;
 }
 
 BearSSLClient::operator bool()
