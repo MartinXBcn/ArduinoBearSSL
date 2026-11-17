@@ -296,7 +296,7 @@ br_ssl_engine_fail(br_ssl_engine_context *rc, int err)
 		rc->err = err;
 #if defined(MS_ARDUINOBEARSSL_LOGGING) && defined(MS_LOGGER_ON)
 		// <MS>
-		log_printf("\033[0;101m""##### ERROR ##### br_ssl_engine_fail err: %i""\033[0m""\n", err);
+		if (err) log_printf("\033[0;101m""##### ERROR ##### br_ssl_engine_fail err: %i""\033[0m""\n", err);
 //		__assert_func (__FILENAME__, __LINE__, __ASSERT_FUNC, "Fatal error - stop.");
 //		esp_backtrace_print(1000);
 #endif

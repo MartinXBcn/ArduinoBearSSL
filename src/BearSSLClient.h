@@ -80,11 +80,33 @@ public:
     if (_client != &client) {
       _ioc = {};
       _client = &client;
+#if defined(MS_OTA_DIAGNOSTICS)
+      // 16.11.2026 - A transport replacement invalidates its old observer.
+      _ioFailureDiagnosticCallback = nullptr;
+      _ioFailureDiagnosticContext = nullptr;
+#endif
     }
   }
   
   // <MS>
   inline Client* getClient() { return _client; }
+
+#if defined(MS_OTA_DIAGNOSTICS)
+  // 16.11.2026 - Optional read-only diagnostics; caller serializes this client.
+  using IoFailureDiagnosticCallback = void (*)(void*, const char*);
+  struct IoDiagnostics {
+    bool initialized = false;
+    bool readSeen = false;
+    uint64_t readBytes = 0;
+    uint64_t positiveReads = 0;
+    uint64_t zeroReads = 0;
+    uint64_t lastReadAgeMs = 0;
+    uint64_t maxReadGapMs = 0;
+    uint64_t sinceInitMs = 0;
+  };
+  void setIoFailureDiagnosticCallback(IoFailureDiagnosticCallback callback, void* context);
+  IoDiagnostics getIoDiagnostics() const;
+#endif
 
   inline void setProfile(void(*client_init_function)(br_ssl_client_context *cc, br_x509_minimal_context *xc, const br_x509_trust_anchor *trust_anchors, size_t trustrust_anchorst_anchors_num)) { _br_ssl_client_init_function = client_init_function; }
   inline void setTrustAnchors(const br_x509_trust_anchor* myTAs, int myNumTAs) { _TAs = myTAs; _numTAs = myNumTAs; }
@@ -164,6 +186,12 @@ private:
   unsigned char _obuf[BEAR_SSL_CLIENT_OBUF_SIZE];
   // A null engine marks I/O as unavailable until connectSSL() initializes it.
   br_sslio_context _ioc;
+
+#if defined(MS_OTA_DIAGNOSTICS)
+  // 16.11.2026 - Retain the observer across stop() and subsequent reconnects.
+  IoFailureDiagnosticCallback _ioFailureDiagnosticCallback = nullptr;
+  void* _ioFailureDiagnosticContext = nullptr;
+#endif
 
   void (*_br_ssl_client_init_function)(br_ssl_client_context *cc, br_x509_minimal_context *xc, const br_x509_trust_anchor *trust_anchors, size_t trust_anchors_num);
 };

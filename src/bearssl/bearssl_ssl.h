@@ -3971,6 +3971,21 @@ typedef struct {
 	int (*low_write)(void *write_context,
 		const unsigned char *data, size_t len);
 	void *write_context;
+	/* 16.11.2026 - Optional transport diagnostics belong to this TLS session. */
+#if defined(MS_OTA_DIAGNOSTICS)
+	uint64_t diagnostic_started_ms;
+	uint64_t diagnostic_last_read_ms;
+	uint64_t diagnostic_read_bytes;
+	/* 16.11.2026 - Count transport progress, independently of plaintext reads. */
+	uint64_t diagnostic_positive_reads;
+	uint64_t diagnostic_zero_reads;
+	uint64_t diagnostic_max_read_gap_ms;
+	void (*diagnostic_failure_callback)(void *context, const char *reason);
+	void *diagnostic_failure_context;
+	uint8_t diagnostic_read_seen;
+	uint8_t diagnostic_failure_logged;
+	uint8_t diagnostic_conflict_logged;
+#endif
 #endif
 } br_sslio_context;
 

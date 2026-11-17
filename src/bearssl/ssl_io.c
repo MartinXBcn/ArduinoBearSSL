@@ -29,6 +29,81 @@
 #include "ms_semphr.h"
 //#include "esp_debug_helpers.h"
 
+/* 16.11.2026 - Optional I/O failure diagnostics, without plaintext-byte timing. */
+#if defined(MS_OTA_DIAGNOSTICS)
+#include <inttypes.h>
+#include "esp_timer.h"
+#include "freertos/task.h"
+
+static uint64_t
+sslio_diagnostic_now_ms(void)
+{
+	return (uint64_t)esp_timer_get_time() / 1000;
+}
+
+static void
+sslio_diagnostic_read(br_sslio_context *ctx, size_t len)
+{
+	const uint64_t now = sslio_diagnostic_now_ms();
+	/* 16.11.2026 - Timestamp only ciphertext progress, never each plaintext byte. */
+	if (ctx->diagnostic_read_seen) {
+		const uint64_t gap = now - ctx->diagnostic_last_read_ms;
+		if (gap > ctx->diagnostic_max_read_gap_ms) {
+			ctx->diagnostic_max_read_gap_ms = gap;
+		}
+	}
+	ctx->diagnostic_last_read_ms = now;
+	++ctx->diagnostic_positive_reads;
+	ctx->diagnostic_read_bytes += len;
+	ctx->diagnostic_read_seen = 1;
+}
+
+static void
+sslio_diagnostic_failure(br_sslio_context *ctx, const char *reason,
+	size_t requested, int returned, int conflict)
+{
+	const int err = br_ssl_engine_last_error(ctx->engine);
+	if (conflict) {
+		/* A nonterminal target conflict must not hide a later transport error. */
+		if (ctx->diagnostic_conflict_logged) { return; }
+		ctx->diagnostic_conflict_logged = 1;
+	} else {
+		/* Normal TLS closure is not an error; repeated reads must not flood logs. */
+		if (err == BR_ERR_OK || ctx->diagnostic_failure_logged) { return; }
+		ctx->diagnostic_failure_logged = 1;
+	}
+	const uint64_t now = sslio_diagnostic_now_ms();
+	const uint64_t age = ctx->diagnostic_read_seen ?
+		now - ctx->diagnostic_last_read_ms : 0;
+	const uint64_t max_gap = age > ctx->diagnostic_max_read_gap_ms ?
+		age : ctx->diagnostic_max_read_gap_ms;
+	const TaskHandle_t task = xTaskGetCurrentTaskHandle();
+	log_printf("[BEARSSL-IO] reason=%s err=%d tls=%p io=%p client=%p task=%s/%p uptime_ms=%" PRIu64
+		" read_seen=%u last_rx_age_ms=%" PRIu64 " since_init_ms=%" PRIu64
+		" requested=%u returned=%d rx_total=%" PRIu64
+		" positive_reads=%" PRIu64 " zero_reads=%" PRIu64 " max_rx_gap_ms=%" PRIu64 "\n",
+		reason, err, (void *)ctx->engine, (void *)ctx, ctx->read_context,
+		pcTaskGetName(task), (void *)task, now,
+		(unsigned)ctx->diagnostic_read_seen, age, now - ctx->diagnostic_started_ms,
+		(unsigned)requested, returned, ctx->diagnostic_read_bytes,
+		ctx->diagnostic_positive_reads, ctx->diagnostic_zero_reads, max_gap);
+	/* 16.11.2026 - The application may attach a cached transport snapshot.
+	 * Do not notify on a nonterminal conflict or a normal TLS close. */
+	if (!conflict && ctx->diagnostic_failure_callback != NULL) {
+		ctx->diagnostic_failure_callback(ctx->diagnostic_failure_context, reason);
+	}
+}
+
+#define SSLIO_DIAG_READ(ctx, len) sslio_diagnostic_read((ctx), (len))
+#define SSLIO_DIAG_ZERO(ctx) (++(ctx)->diagnostic_zero_reads)
+#define SSLIO_DIAG_FAIL(ctx, reason, requested, returned, conflict) \
+	sslio_diagnostic_failure((ctx), (reason), (requested), (returned), (conflict))
+#else
+#define SSLIO_DIAG_READ(ctx, len) ((void)0)
+#define SSLIO_DIAG_ZERO(ctx) ((void)0)
+#define SSLIO_DIAG_FAIL(ctx, reason, requested, returned, conflict) ((void)0)
+#endif
+
 
 /* see bearssl_ssl.h */
 void
@@ -46,6 +121,20 @@ br_sslio_init(br_sslio_context *ctx,
 	ctx->read_context = read_context;
 	ctx->low_write = low_write;
 	ctx->write_context = write_context;
+	/* 16.11.2026 - Reset optional history when this I/O context is reused. */
+#if defined(MS_OTA_DIAGNOSTICS)
+	ctx->diagnostic_started_ms = sslio_diagnostic_now_ms();
+	ctx->diagnostic_last_read_ms = 0;
+	ctx->diagnostic_read_bytes = 0;
+	ctx->diagnostic_positive_reads = 0;
+	ctx->diagnostic_zero_reads = 0;
+	ctx->diagnostic_max_read_gap_ms = 0;
+	ctx->diagnostic_failure_callback = NULL;
+	ctx->diagnostic_failure_context = NULL;
+	ctx->diagnostic_read_seen = 0;
+	ctx->diagnostic_failure_logged = 0;
+	ctx->diagnostic_conflict_logged = 0;
+#endif
 }
 
 /*
@@ -76,6 +165,8 @@ run_until(br_sslio_context *ctx, unsigned target)
 //		log_printf("run_until - state: %u\n", state);		
 #endif			
 		if (state & BR_SSL_CLOSED) {
+			/* 16.11.2026 - Identify engine failure observed before the target state. */
+			SSLIO_DIAG_FAIL(ctx, "run/closed", 0, -1, 0);
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 			log_printf("run_until << ***ERROR*** BR_SSL_CLOSED\n");		
 #endif			
@@ -107,6 +198,8 @@ run_until(br_sslio_context *ctx, unsigned target)
 				/* Always close the engine so br_sslio_close() can finish. */
 				br_ssl_engine_fail(ctx->engine,
 					ctx->engine->shutdown_recv ? BR_ERR_OK : BR_ERR_IO);
+				/* 16.11.2026 - Keep verified close_notify shutdowns silent. */
+				SSLIO_DIAG_FAIL(ctx, "run/low_write_negative", len, wlen, 0);
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 				log_printf("run_until << ***ERROR*** wlen < 0\n");		
 #endif				
@@ -146,6 +239,8 @@ run_until(br_sslio_context *ctx, unsigned target)
 		 * This is unrecoverable here, so we report an error.
 		 */
 		if (state & BR_SSL_RECVAPP) {
+			/* 16.11.2026 - This refusal need not put the engine into failed state. */
+			SSLIO_DIAG_FAIL(ctx, "run/target_conflict", 0, -1, 1);
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 			log_printf("run_until << ***ERROR*** BR_SSL_RECVAPP\n");	
 #endif				
@@ -172,6 +267,8 @@ run_until(br_sslio_context *ctx, unsigned target)
 #endif			
 			if (rlen < 0) {
 				br_ssl_engine_fail(ctx->engine, BR_ERR_IO);
+				/* 16.11.2026 - Report the exact transport callback failure site. */
+				SSLIO_DIAG_FAIL(ctx, "run/low_read_negative", len, rlen, 0);
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 				log_printf("run_until << ***ERROR*** rlen < 0\n");		
 #endif				
@@ -182,14 +279,20 @@ run_until(br_sslio_context *ctx, unsigned target)
 			}
 			else
 			if (rlen > 0) {
+				/* 16.11.2026 - Timestamp ciphertext chunks, not application bytes. */
+				SSLIO_DIAG_READ(ctx, (size_t)rlen);
 				br_ssl_engine_recvrec_ack(ctx->engine, rlen);
 				start_time = millis();
 			}
 			else {
+				/* 16.11.2026 - Empty transport reads need no additional clock. */
+				SSLIO_DIAG_ZERO(ctx);
 				// <MS>
 				if (millis() - start_time > timeout) {
 					br_ssl_engine_fail(
 						ctx->engine, BR_ERR_IO);
+					/* 16.11.2026 - Preserve the existing five-second timeout. */
+					SSLIO_DIAG_FAIL(ctx, "run/rx_no_progress_5s", len, rlen, 0);
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 					log_printf("run_until << ***ERROR*** timeout\n");		
 #endif
@@ -220,6 +323,8 @@ run_until(br_sslio_context *ctx, unsigned target)
 		if (ms_timeout_counter > 10) {
 			// <MS>
 			br_ssl_engine_fail(ctx->engine, BR_ERR_IO);
+			/* 16.11.2026 - Distinguish local engine flush exhaustion from RX. */
+			SSLIO_DIAG_FAIL(ctx, "run/flush_limit", 0, -1, 0);
 #ifdef MS_ARDUINOBEARSSL_RUNUNTIL_LOGGING		
 			log_printf("run_until << ***ERROR*** br_ssl_engine_flush() - timeout\n");		
 #endif
@@ -286,6 +391,8 @@ int br_sslio_read_available(br_sslio_context *ctx)
 {
 	size_t alen;
 	unsigned state = br_ssl_engine_current_state(ctx->engine);
+	/* 16.11.2026 - A previous engine failure may be queried without run_until. */
+	SSLIO_DIAG_FAIL(ctx, "available/engine_error", 0, -1, 0);
 
 	if (state & BR_SSL_RECVREC) {
 		unsigned char *buf;
@@ -296,10 +403,19 @@ int br_sslio_read_available(br_sslio_context *ctx)
 		rlen = ctx->low_read(ctx->read_context, buf, len);
 		if (rlen < 0) {
 			br_ssl_engine_fail(ctx->engine, BR_ERR_IO);
+			/* 16.11.2026 - available() can pull ciphertext before a read(). */
+			SSLIO_DIAG_FAIL(ctx, "available/low_read_negative", len, rlen, 0);
 			return -1;
 		}
 		if (rlen > 0) {
+			/* 16.11.2026 - Preserve RX history across available/read calls. */
+			SSLIO_DIAG_READ(ctx, (size_t)rlen);
 			br_ssl_engine_recvrec_ack(ctx->engine, rlen);
+			/* 16.11.2026 - Ciphertext acceptance can reveal crypto/protocol errors. */
+			SSLIO_DIAG_FAIL(ctx, "available/engine_error", len, rlen, 0);
+		} else {
+			/* 16.11.2026 - Distinguish no ciphertext from incomplete plaintext. */
+			SSLIO_DIAG_ZERO(ctx);
 		}
 	}
 	br_ssl_engine_recvapp_buf(ctx->engine, &alen);
@@ -315,6 +431,8 @@ int br_sslio_peek(br_sslio_context *ctx, void *dst, size_t len)
 		return 0;
 	}
 	unsigned state = br_ssl_engine_current_state(ctx->engine);
+	/* 16.11.2026 - Report an existing error even when callers only peek. */
+	SSLIO_DIAG_FAIL(ctx, "peek/engine_error", 0, -1, 0);
 
 	if (state & BR_SSL_RECVREC) {
 		unsigned char *buf;
@@ -325,10 +443,19 @@ int br_sslio_peek(br_sslio_context *ctx, void *dst, size_t len)
 		rlen = ctx->low_read(ctx->read_context, buf, len);
 		if (rlen < 0) {
 			br_ssl_engine_fail(ctx->engine, BR_ERR_IO);
+			/* 16.11.2026 - Identify transport failures reached through peek(). */
+			SSLIO_DIAG_FAIL(ctx, "peek/low_read_negative", len, rlen, 0);
 			return -1;
 		}
 		if (rlen > 0) {
+			/* 16.11.2026 - Peeking can receive another ciphertext chunk. */
+			SSLIO_DIAG_READ(ctx, (size_t)rlen);
 			br_ssl_engine_recvrec_ack(ctx->engine, rlen);
+			/* 16.11.2026 - Peeking can also finish validation of an incoming record. */
+			SSLIO_DIAG_FAIL(ctx, "peek/engine_error", len, rlen, 0);
+		} else {
+			/* 16.11.2026 - Keep peek's transport history consistent with read. */
+			SSLIO_DIAG_ZERO(ctx);
 		}
 	}
 	buf = br_ssl_engine_recvapp_buf(ctx->engine, &alen);

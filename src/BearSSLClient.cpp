@@ -46,6 +46,37 @@
 #include "ESP32Logger.h"
 // <MS>
 
+// 16.11.2026 - Optional transport-progress snapshots use a monotonic clock.
+#if defined(MS_OTA_DIAGNOSTICS)
+#include "esp_timer.h"
+
+void BearSSLClient::setIoFailureDiagnosticCallback(
+    IoFailureDiagnosticCallback callback, void* context) {
+  _ioFailureDiagnosticCallback = callback;
+  _ioFailureDiagnosticContext = context;
+  if (_ioc.engine) {
+    _ioc.diagnostic_failure_callback = callback;
+    _ioc.diagnostic_failure_context = context;
+  }
+}
+
+BearSSLClient::IoDiagnostics BearSSLClient::getIoDiagnostics() const {
+  IoDiagnostics d;
+  if (!_ioc.engine) { return d; }
+  const uint64_t now = static_cast<uint64_t>(esp_timer_get_time()) / 1000;
+  d.initialized = true;
+  d.readSeen = _ioc.diagnostic_read_seen != 0;
+  d.readBytes = _ioc.diagnostic_read_bytes;
+  d.positiveReads = _ioc.diagnostic_positive_reads;
+  d.zeroReads = _ioc.diagnostic_zero_reads;
+  d.sinceInitMs = now - _ioc.diagnostic_started_ms;
+  d.lastReadAgeMs = d.readSeen ? now - _ioc.diagnostic_last_read_ms : 0;
+  d.maxReadGapMs = _ioc.diagnostic_max_read_gap_ms;
+  if (d.lastReadAgeMs > d.maxReadGapMs) { d.maxReadGapMs = d.lastReadAgeMs; }
+  return d;
+}
+#endif
+
 
 #ifndef ARDUINO_BEARSSL_DISABLE_BUILTIN_TRUST_ANCHORS
 BearSSLClient::BearSSLClient(Client& client) :
@@ -573,6 +604,12 @@ int BearSSLClient::connectSSL(const char* host)
 
   // use our own socket I/O operations
   br_sslio_init(&_ioc, &_sc.eng, BearSSLClient::clientRead, _client, BearSSLClient::clientWrite, _client);
+
+#if defined(MS_OTA_DIAGNOSTICS)
+  // 16.11.2026 - Reinstall before handshake I/O, also after a reconnect.
+  _ioc.diagnostic_failure_callback = _ioFailureDiagnosticCallback;
+  _ioc.diagnostic_failure_context = _ioFailureDiagnosticContext;
+#endif
 
   br_sslio_flush(&_ioc);
 
